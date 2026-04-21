@@ -1,0 +1,36 @@
+# Use Node.js 18 Alpine as base image
+FROM node:18-alpine
+
+# Install Oracle Instant Client (if needed for oracledb)
+# Note: You may need to download and install Oracle Instant Client
+# RUN apk add --no-cache libaio libnsl libc6-compat curl && \
+#     curl -o /tmp/instantclient-basic.zip https://download.oracle.com/otn_software/linux/instantclient/1923000/instantclient-basic-linux.x64-19.23.0.0.0dbru.zip && \
+#     unzip /tmp/instantclient-basic.zip -d /opt/oracle && \
+#     rm /tmp/instantclient-basic.zip && \
+#     ln -s /opt/oracle/instantclient_19_23 /opt/oracle/instantclient && \
+#     echo /opt/oracle/instantclient > /etc/ld-musl-x86_64.path
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY oracle/package*.json ./
+
+# Install dependencies
+RUN npm ci --only=production
+
+# Copy source code
+COPY oracle/src ./src
+COPY oracle/tsconfig.json ./
+
+# Build the application
+RUN npm run build
+
+# Create logs directory
+RUN mkdir -p logs
+
+# Expose port (if needed)
+# EXPOSE 3000
+
+# Start the application
+CMD ["npm", "start"]

@@ -1,0 +1,56 @@
+version: "3.8"
+
+services:
+  backend-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend-api
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOST=0.0.0.0
+    env_file:
+      - backend-api/.env
+    depends_on:
+      - oracle-db
+    networks:
+      - remitroot-network
+    restart: unless-stopped
+
+  oracle-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.oracle
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+    env_file:
+      - oracle/.env
+    depends_on:
+      - oracle-db
+    networks:
+      - remitroot-network
+    restart: unless-stopped
+
+  oracle-db:
+    image: gvenzl/oracle-xe:21-slim
+    ports:
+      - "1521:1521"
+    environment:
+      - ORACLE_PASSWORD=oracle
+      - APP_USER=remitroot
+      - APP_USER_PASSWORD=remitroot123
+    volumes:
+      - oracle_data:/opt/oracle/oradata
+    networks:
+      - remitroot-network
+    restart: unless-stopped
+
+volumes:
+  oracle_data:
+
+networks:
+  remitroot-network:
+    driver: bridge
