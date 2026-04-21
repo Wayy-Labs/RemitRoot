@@ -704,6 +704,4 @@ MIT © 2026 RemitRoot Contributors
 
 ---
 
-<p align="center">
-  Built with 💧 on <a href="https://stellar.org">Stellar</a> · Submitted to <a href="https://drips.network/wave">Drips Wave Hackathon</a>
-</p>
+
