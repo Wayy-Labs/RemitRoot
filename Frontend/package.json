@@ -1,0 +1,21 @@
+{
+  "name": "remitroot-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "npm@10.8.2",
+  "workspaces": [
+    "apps/*",
+    "shared"
+  ],
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace app-sender\" \"npm run dev --workspace app-farmer\"",
+    "dev:sender": "npm run dev --workspace app-sender",
+    "dev:farmer": "npm run dev --workspace app-farmer",
+    "build": "npm run build --workspace app-sender && npm run build --workspace app-farmer",
+    "start": "concurrently \"npm run start --workspace app-sender\" \"npm run start --workspace app-farmer\"",
+    "lint": "npm run lint --workspace app-sender && npm run lint --workspace app-farmer"
+  }
+}

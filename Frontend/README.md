@@ -146,7 +146,7 @@ packages/app-vendor/
 ### Prerequisites
 
 - **Node.js** v20+
-- **pnpm** v9+
+- **npm** v10+
 - **Freighter** browser wallet (for sender app testing)
 - A **Stellar Testnet** account funded via [Friendbot](https://friendbot.stellar.org)
 
@@ -157,12 +157,12 @@ packages/app-vendor/
 cd Frontend
 
 # Install all workspace dependencies
-pnpm install
+npm install
 
-# Install dependencies for each app
-pnpm --filter app-sender install
-pnpm --filter app-farmer install
-pnpm --filter app-vendor install
+# Install dependencies for each app (optional)
+npm install --workspace app-sender
+npm install --workspace app-farmer
+npm install --workspace app-vendor
 ```
 
 ### Environment Variables
@@ -208,19 +208,19 @@ ANCHOR_HOME_DOMAIN=testanchor.stellar.org
 ### Running Locally
 
 ```bash
-# Start all frontend apps in development mode
-pnpm dev
+# Start sender + farmer apps in development mode
+npm run dev
 
 # Start individual apps
-pnpm --filter app-sender dev      # http://localhost:3000
-pnpm --filter app-farmer dev      # http://localhost:3001
-pnpm --filter app-vendor dev      # http://localhost:3002
+npm run dev --workspace app-sender      # http://localhost:3000
+npm run dev --workspace app-farmer      # http://localhost:3001
+npm run dev --workspace app-vendor      # http://localhost:3002
 
 # Build for production
-pnpm build
+npm run build
 
 # Start production servers
-pnpm start
+npm run start
 ```
 
 ---
@@ -319,18 +319,18 @@ const vouchers = await getAccountAssets('RVCH', rvchIssuer);
 
 ```bash
 # Run all frontend tests
-pnpm test
+npm run test --workspaces --if-present
 
 # Run tests for specific app
-pnpm --filter app-sender test
-pnpm --filter app-farmer test
-pnpm --filter app-vendor test
+npm run test --workspace app-sender
+npm run test --workspace app-farmer
+npm run test --workspace app-vendor
 
 # Run with coverage
-pnpm test:coverage
+npm run test:coverage --workspaces --if-present
 
 # Run E2E tests
-pnpm test:e2e
+npm run test:e2e --workspaces --if-present
 ```
 
 **Test categories:**
