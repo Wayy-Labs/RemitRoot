@@ -49,8 +49,10 @@ pub fn fund(
         amount,
         repaid: 0,
         repayment_fee_bps: DEFAULT_REPAYMENT_FEE_BPS,
+        protocol_fee_bps: PROTOCOL_FEE_BPS,
         state: EscrowState::Funded,
         created_ledger: env.ledger().sequence(),
+        repay_deadline_ledger: 0,
     };
 
     env.storage().persistent().set(&DataKey::Escrow(escrow_id.clone()), &record);
@@ -115,8 +117,8 @@ pub fn redeem_voucher(
     // Burn voucher from farmer (enforces vendor-only transfer restriction)
     voucher::burn_voucher(env, &escrow_id, &farmer, &vendor, record.amount)?;
 
-    // Protocol fee deduction
-    let protocol_fee = record.amount * (PROTOCOL_FEE_BPS as i128) / 10_000;
+    // Protocol fee deduction — use per-escrow fee stored at fund time
+    let protocol_fee = record.amount * (record.protocol_fee_bps as i128) / 10_000;
     let vendor_amount = record.amount - protocol_fee;
 
     let token_client = token::Client::new(env, usdc_token);
@@ -126,6 +128,7 @@ pub fn redeem_voucher(
     if protocol_fee > 0 {
         let admin: Address = env.storage().instance().get(&DataKey::Admin).ok_or(Error::Unauthorized)?;
         token_client.transfer(&env.current_contract_address(), &admin, &protocol_fee);
+        events::fee_collected(env, &escrow_id, protocol_fee, 0);
     }
 
     record.state = EscrowState::Redeemed;

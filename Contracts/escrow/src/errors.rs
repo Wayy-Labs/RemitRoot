@@ -17,6 +17,8 @@ pub enum Error {
     InvalidState = 11,
     InsufficientBalance = 12,
     TransferRestricted = 13,
-    AbiNotFound = 14,
-    AbiVersionMismatch = 15,
+    RepaymentNotStarted = 14,
+    RepaymentTimeout = 15,
+    AbiNotFound = 16,
+    AbiVersionMismatch = 17,
 }

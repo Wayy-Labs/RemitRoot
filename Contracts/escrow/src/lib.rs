@@ -1,6 +1,6 @@
 #![no_std]
 
-use soroban_sdk::{contract, contractimpl, Address, Bytes, BytesN, Env, Symbol};
+use soroban_sdk::{contract, contractimpl, Address, Bytes, BytesN, Env, Symbol, Vec};
 
 mod errors;
 mod escrow;
@@ -10,7 +10,7 @@ mod storage;
 mod voucher;
 
 use errors::Error;
-use storage::{ContractAbi, DataKey, EscrowRecord};
+use storage::{ContractAbi, DataKey, EscrowRecord, RepaymentEntry};
 
 #[contract]
 pub struct EscrowContract;
@@ -61,10 +61,11 @@ impl EscrowContract {
 
     /// Oracle triggers repayment window after harvest.
     pub fn trigger_repay(env: Env, escrow_id: BytesN<32>) -> Result<(), Error> {
-        escrow::trigger_repay(&env, escrow_id)
+        repayment::trigger_repay(&env, escrow_id)
     }
 
-    /// Farmer makes a partial repayment.
+    /// Farmer makes a partial or full repayment.
+    /// Automatically streams USDC back to sender.
     pub fn repay(
         env: Env,
         usdc_token: Address,
@@ -88,6 +89,16 @@ impl EscrowContract {
     /// Get escrow details.
     pub fn get_escrow(env: Env, escrow_id: BytesN<32>) -> Result<EscrowRecord, Error> {
         escrow::get_escrow(&env, escrow_id)
+    }
+
+    /// Get full repayment history for an escrow.
+    pub fn get_repayment_history(env: Env, escrow_id: BytesN<32>) -> Vec<RepaymentEntry> {
+        repayment::get_repayment_history(&env, escrow_id)
+    }
+
+    /// Get remaining balance to repay for an escrow.
+    pub fn get_remaining_balance(env: Env, escrow_id: BytesN<32>) -> Result<i128, Error> {
+        repayment::get_remaining_balance(&env, escrow_id)
     }
 
     // -----------------------------------------------------------------------

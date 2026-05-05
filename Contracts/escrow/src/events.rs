@@ -21,6 +21,7 @@ pub fn voucher_minted(env: &Env, escrow_id: &BytesN<32>, farmer: &Address, amoun
     );
 }
 
+/// Emitted by voucher::burn_voucher — low-level burn inside the voucher module.
 pub fn voucher_burned(env: &Env, escrow_id: &BytesN<32>, vendor: &Address, amount: i128) {
     env.events().publish(
         (symbol_short!("burned"), escrow_id.clone()),
@@ -28,6 +29,7 @@ pub fn voucher_burned(env: &Env, escrow_id: &BytesN<32>, vendor: &Address, amoun
     );
 }
 
+/// Emitted by escrow::redeem_voucher — high-level redemption with USDC transfer.
 pub fn voucher_redeemed(env: &Env, escrow_id: &BytesN<32>, vendor: &Address, amount: i128) {
     env.events().publish(
         (symbol_short!("redeemed"), escrow_id.clone()),
@@ -35,17 +37,32 @@ pub fn voucher_redeemed(env: &Env, escrow_id: &BytesN<32>, vendor: &Address, amo
     );
 }
 
-pub fn repay_triggered(env: &Env, escrow_id: &BytesN<32>) {
+/// Emitted when oracle opens the repayment window. Includes deadline for off-chain monitoring.
+pub fn repay_triggered(env: &Env, escrow_id: &BytesN<32>, deadline_ledger: u32) {
     env.events().publish(
         (Symbol::new(env, "repay_trig"), escrow_id.clone()),
-        (),
+        deadline_ledger,
     );
 }
 
-pub fn repayment_made(env: &Env, escrow_id: &BytesN<32>, farmer: &Address, amount: i128, total_repaid: i128) {
+pub fn repayment_made(
+    env: &Env,
+    escrow_id: &BytesN<32>,
+    farmer: &Address,
+    amount: i128,
+    total_repaid: i128,
+    remaining: i128,
+) {
     env.events().publish(
         (Symbol::new(env, "repayment"), escrow_id.clone()),
-        (farmer.clone(), amount, total_repaid),
+        (farmer.clone(), amount, total_repaid, remaining),
+    );
+}
+
+pub fn repayment_complete(env: &Env, escrow_id: &BytesN<32>, total_repaid: i128) {
+    env.events().publish(
+        (Symbol::new(env, "repay_done"), escrow_id.clone()),
+        total_repaid,
     );
 }
 
@@ -63,10 +80,18 @@ pub fn escrow_cancelled(env: &Env, escrow_id: &BytesN<32>, sender: &Address, amo
     );
 }
 
-pub fn escrow_defaulted(env: &Env, escrow_id: &BytesN<32>) {
+/// Emitted on default — includes repaid vs owed for off-chain loss accounting.
+pub fn escrow_defaulted(env: &Env, escrow_id: &BytesN<32>, repaid: i128, owed: i128) {
     env.events().publish(
         (symbol_short!("default"), escrow_id.clone()),
-        (),
+        (repaid, owed),
+    );
+}
+
+pub fn fee_collected(env: &Env, escrow_id: &BytesN<32>, protocol_fee: i128, repayment_fee: i128) {
+    env.events().publish(
+        (Symbol::new(env, "fee_coll"), escrow_id.clone()),
+        (protocol_fee, repayment_fee),
     );
 }
 
