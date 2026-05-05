@@ -21,12 +21,12 @@ npm install
 ## Quick Start
 
 ```typescript
-import HorizonEventStreamListener from './src/horizonListener';
+import HorizonEventStreamListener from "./src/horizonListener";
 
 // Create listener instance
 const listener = new HorizonEventStreamListener({
-  horizonUrl: 'https://horizon-testnet.stellar.org',
-  network: 'testnet',
+  horizonUrl: "https://horizon-testnet.stellar.org",
+  network: "testnet",
   reconnectInterval: 1000,
   maxReconnectAttempts: 5,
   eventQueueMaxSize: 1000,
@@ -35,7 +35,7 @@ const listener = new HorizonEventStreamListener({
 
 // Register event processor
 listener.registerProcessor(async (event) => {
-  console.log('Processing event:', event);
+  console.log("Processing event:", event);
   // Handle the event
 });
 
@@ -43,17 +43,21 @@ listener.registerProcessor(async (event) => {
 listener.setFilterOptions({
   includeTransactions: true,
   includeContractEvents: true,
-  contractAddresses: ['CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4'],
+  contractAddresses: [
+    "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4",
+  ],
 });
 
 // Start listening
-await listener.start('now');
+await listener.start("now");
 
 // Listen for lifecycle events
-listener.on('connected', () => console.log('Connected to Horizon'));
-listener.on('disconnected', () => console.log('Disconnected from Horizon'));
-listener.on('error', (error) => console.error('Error:', error));
-listener.on('eventReceived', (event) => console.log('Event received:', event.id));
+listener.on("connected", () => console.log("Connected to Horizon"));
+listener.on("disconnected", () => console.log("Disconnected from Horizon"));
+listener.on("error", (error) => console.error("Error:", error));
+listener.on("eventReceived", (event) =>
+  console.log("Event received:", event.id),
+);
 ```
 
 ## API Reference
@@ -72,90 +76,108 @@ new HorizonEventStreamListener(config: HorizonEventStreamConfig, logger?: Consol
 
 ```typescript
 interface HorizonEventStreamConfig {
-  horizonUrl: string;              // Horizon API endpoint
-  network: 'public' | 'testnet';   // Stellar network
-  reconnectInterval: number;        // Initial reconnect delay (ms)
-  maxReconnectAttempts: number;    // Max reconnection attempts
-  eventQueueMaxSize: number;       // Maximum queue size
-  pollInterval: number;            // Queue processing interval (ms)
+  horizonUrl: string; // Horizon API endpoint
+  network: "public" | "testnet"; // Stellar network
+  reconnectInterval: number; // Initial reconnect delay (ms)
+  maxReconnectAttempts: number; // Max reconnection attempts
+  eventQueueMaxSize: number; // Maximum queue size
+  pollInterval: number; // Queue processing interval (ms)
 }
 ```
 
 #### Methods
 
 **start(cursor?: string): Promise<void>**
+
 - Start listening to events
 - `cursor`: Optional paging token to resume from (defaults to 'now')
 
 **stop(): void**
+
 - Stop listening and disconnect
 
 **registerProcessor(processor: EventProcessor): void**
+
 - Register a callback function to process events
 - Processors are called asynchronously and can fail gracefully
 
 **unregisterProcessor(processor: EventProcessor): void**
+
 - Unregister an event processor
 
 **setFilterOptions(options: Partial<EventFilterOptions>): void**
+
 - Configure event filtering
 
 **getFilterOptions(): EventFilterOptions**
+
 - Get current filter configuration
 
 **addContractAddress(address: string): void**
+
 - Add a contract address to the filter
 
 **removeContractAddress(address: string): void**
+
 - Remove a contract address from the filter
 
 **addSourceAccount(account: string): void**
+
 - Add a source account to the filter
 
 **removeSourceAccount(account: string): void**
+
 - Remove a source account from the filter
 
 **getState(): HorizonListenerState**
+
 - Get current connection state and statistics
 
 **getQueueMetrics(): EventQueueMetrics**
+
 - Get event queue processing metrics
 
 **getQueueSize(): number**
+
 - Get current queue size
 
 **resetMetrics(): void**
+
 - Reset all metrics
 
 **running(): boolean**
+
 - Check if listener is currently running
 
 **setMaxQueueSize(size: number): void**
+
 - Update maximum queue size
 
 **setQueuePollInterval(interval: number): void**
+
 - Update queue processing poll interval
 
 ### Event Filters
 
 ```typescript
 interface EventFilterOptions {
-  includeTransactions?: boolean;      // Process transaction events
-  includeOperations?: boolean;        // Process operation events
-  includeContractEvents?: boolean;    // Process contract events
-  contractAddresses?: string[];       // Filter by contract IDs
-  sourceAccounts?: string[];          // Filter by source accounts
-  operationTypes?: string[];          // Filter by operation types
+  includeTransactions?: boolean; // Process transaction events
+  includeOperations?: boolean; // Process operation events
+  includeContractEvents?: boolean; // Process contract events
+  contractAddresses?: string[]; // Filter by contract IDs
+  sourceAccounts?: string[]; // Filter by source accounts
+  operationTypes?: string[]; // Filter by operation types
 }
 ```
 
 ### Event Types
 
 #### TransactionEvent
+
 ```typescript
 interface TransactionEvent {
   id: string;
-  type: 'transaction';
+  type: "transaction";
   timestamp: string;
   hash: string;
   sourceAccount: string;
@@ -168,10 +190,11 @@ interface TransactionEvent {
 ```
 
 #### OperationEvent
+
 ```typescript
 interface OperationEvent {
   id: string;
-  type: 'operation';
+  type: "operation";
   timestamp: string;
   transactionHash: string;
   operationType: string;
@@ -181,10 +204,11 @@ interface OperationEvent {
 ```
 
 #### ContractEvent
+
 ```typescript
 interface ContractEvent {
   id: string;
-  type: 'contract';
+  type: "contract";
   timestamp: string;
   contractId: string;
   transactionHash: string;
@@ -197,11 +221,12 @@ interface ContractEvent {
 ```
 
 #### ProcessedEvent
+
 ```typescript
 interface ProcessedEvent {
   id: string;
   originalId: string;
-  eventType: 'transaction' | 'operation' | 'contract';
+  eventType: "transaction" | "operation" | "contract";
   contractRelated: boolean;
   timestamp: string;
   data: BlockchainEvent;
@@ -221,8 +246,8 @@ listener.setFilterOptions({
   includeOperations: false,
   includeContractEvents: true,
   contractAddresses: [
-    'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4',
-    'CBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBSC4',
+    "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4",
+    "CBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBSC4",
   ],
 });
 ```
@@ -237,7 +262,7 @@ listener.registerProcessor(async (event) => {
 
 // Process contract events
 listener.registerProcessor(async (event) => {
-  if (event.eventType === 'contract') {
+  if (event.eventType === "contract") {
     await processContractEvent(event.data);
   }
 });
@@ -268,33 +293,33 @@ console.log(`Total received: ${metrics.totalReceived}`);
 ### Event Lifecycle Monitoring
 
 ```typescript
-listener.on('connected', () => {
-  console.log('✓ Connected to Horizon');
+listener.on("connected", () => {
+  console.log("✓ Connected to Horizon");
 });
 
-listener.on('disconnected', () => {
-  console.log('✗ Disconnected from Horizon');
+listener.on("disconnected", () => {
+  console.log("✗ Disconnected from Horizon");
 });
 
-listener.on('error', (error) => {
-  console.error('Connection error:', error.message);
+listener.on("error", (error) => {
+  console.error("Connection error:", error.message);
 });
 
-listener.on('eventReceived', (event) => {
+listener.on("eventReceived", (event) => {
   console.log(`Received ${event.eventType} event: ${event.id}`);
 });
 
-listener.on('maxReconnectAttemptsReached', () => {
-  console.error('Failed to reconnect after max attempts');
+listener.on("maxReconnectAttemptsReached", () => {
+  console.error("Failed to reconnect after max attempts");
   // Implement fallback logic
 });
 
-listener.on('started', () => {
-  console.log('Listener started');
+listener.on("started", () => {
+  console.log("Listener started");
 });
 
-listener.on('stopped', () => {
-  console.log('Listener stopped');
+listener.on("stopped", () => {
+  console.log("Listener stopped");
 });
 ```
 
@@ -373,39 +398,42 @@ The listener implements comprehensive error handling:
 ## Best Practices
 
 1. **Error Handling in Processors**
+
    ```typescript
    listener.registerProcessor(async (event) => {
      try {
        await processEvent(event);
      } catch (error) {
-       logger.error('Failed to process event', { eventId: event.id, error });
+       logger.error("Failed to process event", { eventId: event.id, error });
        // Implement retry or fallback logic
      }
    });
    ```
 
 2. **Memory Management**
+
    ```typescript
    // Increase queue size for high-volume scenarios
    listener.setMaxQueueSize(5000);
-   
+
    // Adjust poll interval based on processing speed
    listener.setQueuePollInterval(50);
    ```
 
 3. **Monitoring**
+
    ```typescript
    setInterval(() => {
      const metrics = listener.getQueueMetrics();
      if (metrics.queueSize > 900) {
-       logger.warn('Queue nearly full', metrics);
+       logger.warn("Queue nearly full", metrics);
      }
    }, 60000);
    ```
 
 4. **Graceful Shutdown**
    ```typescript
-   process.on('SIGTERM', () => {
+   process.on("SIGTERM", () => {
      listener.stop();
      process.exit(0);
    });
