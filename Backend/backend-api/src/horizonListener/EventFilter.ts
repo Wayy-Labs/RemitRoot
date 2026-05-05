@@ -3,8 +3,14 @@
  * Filters events based on configured criteria
  */
 
-import { EventFilterOptions, BlockchainEvent, TransactionEvent, OperationEvent, ContractEvent } from './types';
-import { HorizonStreamResponse } from './HorizonConnection';
+import {
+  EventFilterOptions,
+  BlockchainEvent,
+  TransactionEvent,
+  OperationEvent,
+  ContractEvent,
+} from "./types";
+import { HorizonStreamResponse } from "./HorizonConnection";
 
 export class EventFilter {
   private options: EventFilterOptions;
@@ -33,12 +39,19 @@ export class EventFilter {
     }
 
     switch (eventType) {
-      case 'transaction':
-        return this.options.includeTransactions! && this.isTransactionRelevant(event);
-      case 'operation':
-        return this.options.includeOperations! && this.isOperationRelevant(event);
-      case 'contract':
-        return this.options.includeContractEvents! && this.isContractEventRelevant(event);
+      case "transaction":
+        return (
+          this.options.includeTransactions! && this.isTransactionRelevant(event)
+        );
+      case "operation":
+        return (
+          this.options.includeOperations! && this.isOperationRelevant(event)
+        );
+      case "contract":
+        return (
+          this.options.includeContractEvents! &&
+          this.isContractEventRelevant(event)
+        );
       default:
         return false;
     }
@@ -48,15 +61,15 @@ export class EventFilter {
    * Determine event type from Horizon response
    */
   private determineEventType(event: HorizonStreamResponse): string | null {
-    if (event.type === 'transaction') {
-      return 'transaction';
+    if (event.type === "transaction") {
+      return "transaction";
     }
-    if (event.type === 'operation') {
-      return 'operation';
+    if (event.type === "operation") {
+      return "operation";
     }
     // Check for contract events (soroban)
     if (this.isContractEvent(event)) {
-      return 'contract';
+      return "contract";
     }
     return null;
   }
@@ -67,13 +80,18 @@ export class EventFilter {
   private isTransactionRelevant(event: HorizonStreamResponse): boolean {
     // Filter by source account if specified
     if (this.options.sourceAccounts && this.options.sourceAccounts.length > 0) {
-      if (!this.options.sourceAccounts.includes(event.source_account as string)) {
+      if (
+        !this.options.sourceAccounts.includes(event.source_account as string)
+      ) {
         return false;
       }
     }
 
     // Check if transaction contains contract operations
-    if (this.options.contractAddresses && this.options.contractAddresses.length > 0) {
+    if (
+      this.options.contractAddresses &&
+      this.options.contractAddresses.length > 0
+    ) {
       const hasContractOp = this.hasContractOperation(event);
       if (!hasContractOp) {
         return false;
@@ -97,7 +115,9 @@ export class EventFilter {
 
     // Filter by source account if specified
     if (this.options.sourceAccounts && this.options.sourceAccounts.length > 0) {
-      if (!this.options.sourceAccounts.includes(event.source_account as string)) {
+      if (
+        !this.options.sourceAccounts.includes(event.source_account as string)
+      ) {
         return false;
       }
     }
@@ -110,7 +130,10 @@ export class EventFilter {
    */
   private isContractEventRelevant(event: HorizonStreamResponse): boolean {
     // Filter by contract address if specified
-    if (this.options.contractAddresses && this.options.contractAddresses.length > 0) {
+    if (
+      this.options.contractAddresses &&
+      this.options.contractAddresses.length > 0
+    ) {
       const contractId = this.extractContractId(event);
       if (!contractId || !this.options.contractAddresses.includes(contractId)) {
         return false;
@@ -138,12 +161,13 @@ export class EventFilter {
    * Check if transaction contains contract operations
    */
   private hasContractOperation(event: HorizonStreamResponse): boolean {
-    const operations = (event.envelope?.tx?.operations as Array<Record<string, unknown>>) || [];
+    const operations =
+      (event.envelope?.tx?.operations as Array<Record<string, unknown>>) || [];
     return operations.some(
       (op) =>
-        op.type === 'invoke_host_function' ||
-        op.type === 'bump_sequence' ||
-        (op.type as string)?.includes('contract')
+        op.type === "invoke_host_function" ||
+        op.type === "bump_sequence" ||
+        (op.type as string)?.includes("contract"),
     );
   }
 
@@ -151,7 +175,7 @@ export class EventFilter {
    * Extract contract ID from event
    */
   private extractContractId(event: HorizonStreamResponse): string | null {
-    return (event as Record<string, unknown>).contract_id as string || null;
+    return ((event as Record<string, unknown>).contract_id as string) || null;
   }
 
   /**
@@ -159,7 +183,7 @@ export class EventFilter {
    */
   updateOptions(options: Partial<EventFilterOptions>): void {
     this.options = { ...this.options, ...options };
-    this.logger.info('Event filter options updated', this.options);
+    this.logger.info("Event filter options updated", this.options);
   }
 
   /**
@@ -175,7 +199,7 @@ export class EventFilter {
   addContractAddress(address: string): void {
     if (!this.options.contractAddresses!.includes(address)) {
       this.options.contractAddresses!.push(address);
-      this.logger.info('Contract address added to filter', { address });
+      this.logger.info("Contract address added to filter", { address });
     }
   }
 
@@ -186,7 +210,7 @@ export class EventFilter {
     const index = this.options.contractAddresses!.indexOf(address);
     if (index > -1) {
       this.options.contractAddresses!.splice(index, 1);
-      this.logger.info('Contract address removed from filter', { address });
+      this.logger.info("Contract address removed from filter", { address });
     }
   }
 
@@ -196,7 +220,7 @@ export class EventFilter {
   addSourceAccount(account: string): void {
     if (!this.options.sourceAccounts!.includes(account)) {
       this.options.sourceAccounts!.push(account);
-      this.logger.info('Source account added to filter', { account });
+      this.logger.info("Source account added to filter", { account });
     }
   }
 
@@ -207,7 +231,7 @@ export class EventFilter {
     const index = this.options.sourceAccounts!.indexOf(account);
     if (index > -1) {
       this.options.sourceAccounts!.splice(index, 1);
-      this.logger.info('Source account removed from filter', { account });
+      this.logger.info("Source account removed from filter", { account });
     }
   }
 }
