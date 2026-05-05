@@ -51,6 +51,6 @@ pub enum DataKey {
     AbiVersion(BytesN<32>),
 }
 
-pub const APPROVAL_TIMEOUT_LEDGERS: u32 = 100_800;
-pub const PROTOCOL_FEE_BPS: u32 = 100;
-pub const DEFAULT_REPAYMENT_FEE_BPS: u32 = 1000;
+pub const APPROVAL_TIMEOUT_LEDGERS: u32 = 100_800; // ~7 days at 6s/ledger
+pub const PROTOCOL_FEE_BPS: u32 = 100;             // 1%
+pub const DEFAULT_REPAYMENT_FEE_BPS: u32 = 1000;   // 10%

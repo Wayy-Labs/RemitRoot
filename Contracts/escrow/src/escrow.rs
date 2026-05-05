@@ -8,13 +8,15 @@ use crate::storage::{
 };
 use crate::voucher;
 
-fn make_escrow_id(env: &Env, vendor_id: &BytesN<32>) -> BytesN<32> {
+/// Derive a deterministic escrow ID from sender + vendor + season + ledger.
+fn make_escrow_id(env: &Env, sender: &Address, vendor_id: &BytesN<32>, crop_season: &Symbol) -> BytesN<32> {
     let mut preimage = soroban_sdk::Bytes::new(env);
     preimage.extend_from_array(&env.ledger().sequence().to_be_bytes());
     preimage.append(&soroban_sdk::Bytes::from_slice(env, vendor_id.to_array().as_slice()));
     env.crypto().sha256(&preimage).into()
 }
 
+/// Sender locks USDC into a new escrow.
 pub fn fund(
     env: &Env,
     usdc_token: &Address,
@@ -26,14 +28,16 @@ pub fn fund(
     if amount <= 0 {
         return Err(Error::InvalidAmount);
     }
+
     sender.require_auth();
 
-    let escrow_id = make_escrow_id(env, &vendor_id);
+    let escrow_id = make_escrow_id(env, sender, &vendor_id, &crop_season);
 
     if env.storage().persistent().has(&DataKey::Escrow(escrow_id.clone())) {
         return Err(Error::AlreadyFunded);
     }
 
+    // Transfer USDC from sender to contract
     let token_client = token::Client::new(env, usdc_token);
     token_client.transfer(sender, &env.current_contract_address(), &amount);
 
@@ -55,6 +59,7 @@ pub fn fund(
     Ok(escrow_id)
 }
 
+/// Admin approves a farmer for an escrow, transitioning to VoucherMinted state.
 pub fn approve_farmer(
     env: &Env,
     escrow_id: BytesN<32>,
@@ -86,6 +91,7 @@ pub fn approve_farmer(
     Ok(())
 }
 
+/// Vendor burns the voucher and receives USDC.
 pub fn redeem_voucher(
     env: &Env,
     usdc_token: &Address,
@@ -109,12 +115,14 @@ pub fn redeem_voucher(
     // Burn voucher from farmer (enforces vendor-only transfer restriction)
     voucher::burn_voucher(env, &escrow_id, &farmer, &vendor, record.amount)?;
 
+    // Protocol fee deduction
     let protocol_fee = record.amount * (PROTOCOL_FEE_BPS as i128) / 10_000;
     let vendor_amount = record.amount - protocol_fee;
 
     let token_client = token::Client::new(env, usdc_token);
     token_client.transfer(&env.current_contract_address(), &vendor, &vendor_amount);
 
+    // Send protocol fee to admin treasury
     if protocol_fee > 0 {
         let admin: Address = env.storage().instance().get(&DataKey::Admin).ok_or(Error::Unauthorized)?;
         token_client.transfer(&env.current_contract_address(), &admin, &protocol_fee);
@@ -127,6 +135,7 @@ pub fn redeem_voucher(
     Ok(())
 }
 
+/// Oracle triggers the repayment window after harvest.
 pub fn trigger_repay(env: &Env, escrow_id: BytesN<32>) -> Result<(), Error> {
     let oracle: Address = env.storage().instance().get(&DataKey::Oracle).ok_or(Error::Unauthorized)?;
     oracle.require_auth();
@@ -148,6 +157,7 @@ pub fn trigger_repay(env: &Env, escrow_id: BytesN<32>) -> Result<(), Error> {
     Ok(())
 }
 
+/// Cancel escrow and refund sender if no farmer approved within timeout.
 pub fn cancel(env: &Env, usdc_token: &Address, escrow_id: BytesN<32>) -> Result<(), Error> {
     let mut record: EscrowRecord = env
         .storage()
@@ -174,6 +184,7 @@ pub fn cancel(env: &Env, usdc_token: &Address, escrow_id: BytesN<32>) -> Result<
     Ok(())
 }
 
+/// Get escrow record.
 pub fn get_escrow(env: &Env, escrow_id: BytesN<32>) -> Result<EscrowRecord, Error> {
     env.storage()
         .persistent()
