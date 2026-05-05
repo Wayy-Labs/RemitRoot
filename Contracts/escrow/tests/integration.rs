@@ -2,11 +2,19 @@
 
 use soroban_sdk::{
     testutils::{Address as _, Ledger},
-    Address, BytesN, Env, Symbol,
+    Address, Bytes, BytesN, Env, Symbol,
 };
 
 use crate::{EscrowContract, EscrowContractClient};
-use crate::storage::{EscrowState, REPAYMENT_WINDOW_LEDGERS};
+use crate::storage::{EscrowState, APPROVAL_TIMEOUT_LEDGERS, REPAYMENT_WINDOW_LEDGERS};
+
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
+
+fn create_env() -> Env {
+    Env::default()
+}
 
 fn setup(env: &Env) -> (Address, EscrowContractClient, Address, Address) {
     let contract_id = env.register_contract(None, EscrowContract);
@@ -20,6 +28,7 @@ fn setup(env: &Env) -> (Address, EscrowContractClient, Address, Address) {
     (usdc_token.address(), client, admin, oracle)
 }
 
+/// Fund → approve farmer → approve vendor → redeem. Returns (escrow_id, farmer, sender).
 fn fund_and_redeem(
     env: &Env,
     client: &EscrowContractClient,
@@ -34,6 +43,8 @@ fn fund_and_redeem(
     let usdc_client = soroban_sdk::token::StellarAssetClient::new(env, usdc_id);
     usdc_client.mint(&sender, &amount);
 
+    client.approve_vendor_address(&vendor);
+
     let escrow_id = client.fund(usdc_id, &sender, &vendor_id, &Symbol::new(env, "2025A"), &amount);
     client.approve_farmer(&escrow_id, &farmer);
     client.redeem_voucher(usdc_id, &escrow_id, &vendor);
@@ -41,9 +52,249 @@ fn fund_and_redeem(
     (escrow_id, farmer, sender)
 }
 
+// ---------------------------------------------------------------------------
+// Escrow lifecycle tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_fund_creates_escrow() {
+    let env = create_env();
+    env.mock_all_auths();
+
+    let (usdc_id, client, _admin, _oracle) = setup(&env);
+
+    let sender = Address::generate(&env);
+    let vendor_id: BytesN<32> = BytesN::from_array(&env, &[1u8; 32]);
+    let crop_season = Symbol::new(&env, "2025A");
+    let amount: i128 = 200_000_000;
+
+    let usdc_client = soroban_sdk::token::StellarAssetClient::new(&env, &usdc_id);
+    usdc_client.mint(&sender, &amount);
+
+    let escrow_id = client.fund(&usdc_id, &sender, &vendor_id, &crop_season, &amount);
+
+    let record = client.get_escrow(&escrow_id);
+    assert_eq!(record.sender, sender);
+    assert_eq!(record.amount, amount);
+    assert_eq!(record.state, EscrowState::Funded);
+}
+
+#[test]
+fn test_approve_farmer_transitions_state() {
+    let env = create_env();
+    env.mock_all_auths();
+
+    let (usdc_id, client, _admin, _oracle) = setup(&env);
+
+    let sender = Address::generate(&env);
+    let farmer = Address::generate(&env);
+    let vendor_id: BytesN<32> = BytesN::from_array(&env, &[2u8; 32]);
+    let amount: i128 = 100_000_000;
+
+    let usdc_client = soroban_sdk::token::StellarAssetClient::new(&env, &usdc_id);
+    usdc_client.mint(&sender, &amount);
+
+    let escrow_id = client.fund(&usdc_id, &sender, &vendor_id, &Symbol::new(&env, "2025B"), &amount);
+    client.approve_farmer(&escrow_id, &farmer);
+
+    let record = client.get_escrow(&escrow_id);
+    assert_eq!(record.state, EscrowState::VoucherMinted);
+    assert_eq!(record.farmer, Some(farmer));
+}
+
+#[test]
+fn test_cancel_after_timeout() {
+    let env = create_env();
+    env.mock_all_auths();
+
+    let (usdc_id, client, _admin, _oracle) = setup(&env);
+
+    let sender = Address::generate(&env);
+    let vendor_id: BytesN<32> = BytesN::from_array(&env, &[3u8; 32]);
+    let amount: i128 = 50_000_000;
+
+    let usdc_client = soroban_sdk::token::StellarAssetClient::new(&env, &usdc_id);
+    usdc_client.mint(&sender, &amount);
+
+    let escrow_id = client.fund(&usdc_id, &sender, &vendor_id, &Symbol::new(&env, "2025C"), &amount);
+
+    env.ledger().with_mut(|l| {
+        l.sequence_number += APPROVAL_TIMEOUT_LEDGERS + 1;
+    });
+
+    client.cancel(&usdc_id, &escrow_id);
+
+    let record = client.get_escrow(&escrow_id);
+    assert_eq!(record.state, EscrowState::Closed);
+}
+
+#[test]
+#[should_panic]
+fn test_cancel_before_timeout_fails() {
+    let env = create_env();
+    env.mock_all_auths();
+
+    let (usdc_id, client, _admin, _oracle) = setup(&env);
+
+    let sender = Address::generate(&env);
+    let vendor_id: BytesN<32> = BytesN::from_array(&env, &[4u8; 32]);
+    let amount: i128 = 50_000_000;
+
+    let usdc_client = soroban_sdk::token::StellarAssetClient::new(&env, &usdc_id);
+    usdc_client.mint(&sender, &amount);
+
+    let escrow_id = client.fund(&usdc_id, &sender, &vendor_id, &Symbol::new(&env, "2025D"), &amount);
+
+    client.cancel(&usdc_id, &escrow_id);
+}
+
+// ---------------------------------------------------------------------------
+// Voucher token system tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_mint_voucher_on_approve_farmer() {
+    let env = create_env();
+    env.mock_all_auths();
+
+    let (usdc_id, client, _admin, _oracle) = setup(&env);
+
+    let sender = Address::generate(&env);
+    let farmer = Address::generate(&env);
+    let vendor = Address::generate(&env);
+    let vendor_id: BytesN<32> = BytesN::from_array(&env, &[1u8; 32]);
+
+    let usdc_client = soroban_sdk::token::StellarAssetClient::new(&env, &usdc_id);
+    usdc_client.mint(&sender, &200_000_000i128);
+
+    client.approve_vendor_address(&vendor);
+
+    let escrow_id = client.fund(&usdc_id, &sender, &vendor_id, &Symbol::new(&env, "2025A"), &200_000_000i128);
+
+    assert_eq!(client.get_voucher_balance(&farmer), 0);
+
+    client.approve_farmer(&escrow_id, &farmer);
+
+    assert_eq!(client.get_voucher_balance(&farmer), 200_000_000i128);
+}
+
+#[test]
+fn test_burn_voucher_on_redeem() {
+    let env = create_env();
+    env.mock_all_auths();
+
+    let (usdc_id, client, _admin, _oracle) = setup(&env);
+
+    let sender = Address::generate(&env);
+    let farmer = Address::generate(&env);
+    let vendor = Address::generate(&env);
+    let vendor_id: BytesN<32> = BytesN::from_array(&env, &[2u8; 32]);
+    let amount: i128 = 100_000_000;
+
+    let usdc_client = soroban_sdk::token::StellarAssetClient::new(&env, &usdc_id);
+    usdc_client.mint(&sender, &amount);
+
+    client.approve_vendor_address(&vendor);
+
+    let escrow_id = client.fund(&usdc_id, &sender, &vendor_id, &Symbol::new(&env, "2025B"), &amount);
+    client.approve_farmer(&escrow_id, &farmer);
+
+    assert_eq!(client.get_voucher_balance(&farmer), amount);
+
+    client.redeem_voucher(&usdc_id, &escrow_id, &vendor);
+
+    assert_eq!(client.get_voucher_balance(&farmer), 0);
+}
+
+#[test]
+#[should_panic]
+fn test_transfer_to_unapproved_vendor_fails() {
+    let env = create_env();
+    env.mock_all_auths();
+
+    let (usdc_id, client, _admin, _oracle) = setup(&env);
+
+    let sender = Address::generate(&env);
+    let farmer = Address::generate(&env);
+    let unapproved_vendor = Address::generate(&env);
+    let vendor_id: BytesN<32> = BytesN::from_array(&env, &[3u8; 32]);
+    let amount: i128 = 50_000_000;
+
+    let usdc_client = soroban_sdk::token::StellarAssetClient::new(&env, &usdc_id);
+    usdc_client.mint(&sender, &amount);
+
+    let escrow_id = client.fund(&usdc_id, &sender, &vendor_id, &Symbol::new(&env, "2025C"), &amount);
+    client.approve_farmer(&escrow_id, &farmer);
+
+    client.redeem_voucher(&usdc_id, &escrow_id, &unapproved_vendor);
+}
+
+// ---------------------------------------------------------------------------
+// ABI registry tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_abi_registry_register_and_get() {
+    let env = create_env();
+    env.mock_all_auths();
+
+    let (_, client, _admin, _oracle) = setup(&env);
+
+    let contract_id: BytesN<32> = BytesN::from_array(&env, &[10u8; 32]);
+    let schema = Bytes::from_slice(&env, b"{\"type\":\"escrow\",\"version\":1}");
+
+    let version = client.register_abi(&contract_id, &schema);
+    assert_eq!(version, 1u32);
+
+    let abi = client.get_abi(&contract_id);
+    assert_eq!(abi.version, 1u32);
+    assert_eq!(abi.schema, schema);
+}
+
+#[test]
+fn test_abi_registry_update_increments_version() {
+    let env = create_env();
+    env.mock_all_auths();
+
+    let (_, client, _admin, _oracle) = setup(&env);
+
+    let contract_id: BytesN<32> = BytesN::from_array(&env, &[11u8; 32]);
+    let schema_v1 = Bytes::from_slice(&env, b"{\"version\":1}");
+    let schema_v2 = Bytes::from_slice(&env, b"{\"version\":2}");
+
+    client.register_abi(&contract_id, &schema_v1);
+    let new_version = client.update_abi(&contract_id, &schema_v2);
+    assert_eq!(new_version, 2u32);
+
+    let abi = client.get_abi(&contract_id);
+    assert_eq!(abi.version, 2u32);
+    assert_eq!(abi.schema, schema_v2);
+}
+
+#[test]
+fn test_abi_validate_matching_schema() {
+    let env = create_env();
+    env.mock_all_auths();
+
+    let (_, client, _admin, _oracle) = setup(&env);
+
+    let contract_id: BytesN<32> = BytesN::from_array(&env, &[12u8; 32]);
+    let schema = Bytes::from_slice(&env, b"{\"type\":\"voucher\"}");
+
+    client.register_abi(&contract_id, &schema);
+
+    assert!(client.validate_abi(&contract_id, &schema));
+    let wrong = Bytes::from_slice(&env, b"{\"type\":\"other\"}");
+    assert!(!client.validate_abi(&contract_id, &wrong));
+}
+
+// ---------------------------------------------------------------------------
+// Repayment streaming tests
+// ---------------------------------------------------------------------------
+
 #[test]
 fn test_trigger_repay_sets_deadline() {
-    let env = Env::default();
+    let env = create_env();
     env.mock_all_auths();
 
     let (usdc_id, client, _admin, _oracle) = setup(&env);
@@ -58,7 +309,7 @@ fn test_trigger_repay_sets_deadline() {
 
 #[test]
 fn test_partial_repayment() {
-    let env = Env::default();
+    let env = create_env();
     env.mock_all_auths();
 
     let (usdc_id, client, _admin, _oracle) = setup(&env);
@@ -67,16 +318,14 @@ fn test_partial_repayment() {
 
     client.trigger_repay(&escrow_id);
 
-    // Mint repayment funds to farmer
     let usdc_client = soroban_sdk::token::StellarAssetClient::new(&env, &usdc_id);
     usdc_client.mint(&farmer, &200_000_000i128);
 
-    // Partial repayment: 50 USDC
     client.repay(&usdc_id, &escrow_id, &farmer, &50_000_000i128);
 
     let record = client.get_escrow(&escrow_id);
     assert_eq!(record.repaid, 50_000_000i128);
-    assert_eq!(record.state, EscrowState::Repaying); // not closed yet
+    assert_eq!(record.state, EscrowState::Repaying);
 
     let remaining = client.get_remaining_balance(&escrow_id);
     // total_owed = 100M + 10% = 110M; remaining = 110M - 50M = 60M
@@ -85,7 +334,7 @@ fn test_partial_repayment() {
 
 #[test]
 fn test_full_repayment_closes_escrow() {
-    let env = Env::default();
+    let env = create_env();
     env.mock_all_auths();
 
     let (usdc_id, client, _admin, _oracle) = setup(&env);
@@ -107,7 +356,7 @@ fn test_full_repayment_closes_escrow() {
 
 #[test]
 fn test_overpayment_capped_at_remaining() {
-    let env = Env::default();
+    let env = create_env();
     env.mock_all_auths();
 
     let (usdc_id, client, _admin, _oracle) = setup(&env);
@@ -117,7 +366,6 @@ fn test_overpayment_capped_at_remaining() {
     client.trigger_repay(&escrow_id);
 
     let usdc_client = soroban_sdk::token::StellarAssetClient::new(&env, &usdc_id);
-    // Mint more than owed
     usdc_client.mint(&farmer, &200_000_000i128);
 
     // Try to overpay — should be capped at 110M
@@ -130,7 +378,7 @@ fn test_overpayment_capped_at_remaining() {
 
 #[test]
 fn test_repayment_history_tracked() {
-    let env = Env::default();
+    let env = create_env();
     env.mock_all_auths();
 
     let (usdc_id, client, _admin, _oracle) = setup(&env);
@@ -156,7 +404,7 @@ fn test_repayment_history_tracked() {
 
 #[test]
 fn test_default_after_deadline() {
-    let env = Env::default();
+    let env = create_env();
     env.mock_all_auths();
 
     let (usdc_id, client, _admin, _oracle) = setup(&env);
@@ -164,7 +412,6 @@ fn test_default_after_deadline() {
 
     client.trigger_repay(&escrow_id);
 
-    // Advance past repayment deadline
     env.ledger().with_mut(|l| {
         l.sequence_number += REPAYMENT_WINDOW_LEDGERS + 1;
     });
@@ -178,7 +425,7 @@ fn test_default_after_deadline() {
 #[test]
 #[should_panic]
 fn test_repay_after_complete_fails() {
-    let env = Env::default();
+    let env = create_env();
     env.mock_all_auths();
 
     let (usdc_id, client, _admin, _oracle) = setup(&env);

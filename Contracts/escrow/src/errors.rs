@@ -19,4 +19,6 @@ pub enum Error {
     TransferRestricted = 13,
     RepaymentNotStarted = 14,
     RepaymentTimeout = 15,
+    AbiNotFound = 16,
+    AbiVersionMismatch = 17,
 }

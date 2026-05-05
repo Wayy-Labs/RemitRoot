@@ -21,6 +21,15 @@ pub fn voucher_minted(env: &Env, escrow_id: &BytesN<32>, farmer: &Address, amoun
     );
 }
 
+/// Emitted by voucher::burn_voucher — low-level burn inside the voucher module.
+pub fn voucher_burned(env: &Env, escrow_id: &BytesN<32>, vendor: &Address, amount: i128) {
+    env.events().publish(
+        (symbol_short!("burned"), escrow_id.clone()),
+        (vendor.clone(), amount),
+    );
+}
+
+/// Emitted by escrow::redeem_voucher — high-level redemption with USDC transfer.
 pub fn voucher_redeemed(env: &Env, escrow_id: &BytesN<32>, vendor: &Address, amount: i128) {
     env.events().publish(
         (symbol_short!("redeemed"), escrow_id.clone()),
@@ -28,6 +37,7 @@ pub fn voucher_redeemed(env: &Env, escrow_id: &BytesN<32>, vendor: &Address, amo
     );
 }
 
+/// Emitted when oracle opens the repayment window. Includes deadline for off-chain monitoring.
 pub fn repay_triggered(env: &Env, escrow_id: &BytesN<32>, deadline_ledger: u32) {
     env.events().publish(
         (Symbol::new(env, "repay_trig"), escrow_id.clone()),
@@ -70,6 +80,7 @@ pub fn escrow_cancelled(env: &Env, escrow_id: &BytesN<32>, sender: &Address, amo
     );
 }
 
+/// Emitted on default — includes repaid vs owed for off-chain loss accounting.
 pub fn escrow_defaulted(env: &Env, escrow_id: &BytesN<32>, repaid: i128, owed: i128) {
     env.events().publish(
         (symbol_short!("default"), escrow_id.clone()),
@@ -81,5 +92,19 @@ pub fn fee_collected(env: &Env, escrow_id: &BytesN<32>, protocol_fee: i128, repa
     env.events().publish(
         (Symbol::new(env, "fee_coll"), escrow_id.clone()),
         (protocol_fee, repayment_fee),
+    );
+}
+
+pub fn abi_registered(env: &Env, contract_id: &BytesN<32>, version: u32) {
+    env.events().publish(
+        (Symbol::new(env, "abi_reg"), contract_id.clone()),
+        version,
+    );
+}
+
+pub fn abi_updated(env: &Env, contract_id: &BytesN<32>, old_version: u32, new_version: u32) {
+    env.events().publish(
+        (Symbol::new(env, "abi_upd"), contract_id.clone()),
+        (old_version, new_version),
     );
 }

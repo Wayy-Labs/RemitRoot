@@ -87,6 +87,7 @@ pub fn repay(
     if amount <= 0 {
         return Err(Error::InvalidAmount);
     }
+
     farmer.require_auth();
 
     let mut record: EscrowRecord = env
@@ -100,6 +101,7 @@ pub fn repay(
     }
 
     let remaining = remaining_balance(&record);
+
     if remaining <= 0 {
         return Err(Error::RepaymentComplete);
     }
@@ -159,7 +161,7 @@ pub fn default_escrow(env: &Env, escrow_id: BytesN<32>) -> Result<(), Error> {
         return Err(Error::InvalidState);
     }
 
-    // Enforce deadline check
+    // Enforce deadline check — cannot default before window expires
     if record.repay_deadline_ledger > 0
         && env.ledger().sequence() < record.repay_deadline_ledger
     {
