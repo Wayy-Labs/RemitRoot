@@ -1,6 +1,6 @@
 #![no_std]
 
-use soroban_sdk::{contract, contractimpl, Address, BytesN, Env, Symbol};
+use soroban_sdk::{contract, contractimpl, Address, Bytes, BytesN, Env, Symbol};
 
 mod errors;
 mod escrow;
@@ -10,7 +10,7 @@ mod storage;
 mod voucher;
 
 use errors::Error;
-use storage::{DataKey, EscrowRecord};
+use storage::{ContractAbi, DataKey, EscrowRecord};
 
 #[contract]
 pub struct EscrowContract;
@@ -23,6 +23,10 @@ impl EscrowContract {
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::Oracle, &oracle);
     }
+
+    // -----------------------------------------------------------------------
+    // Escrow lifecycle
+    // -----------------------------------------------------------------------
 
     /// Sender locks USDC for a specific farmer + vendor + season.
     pub fn fund(
@@ -86,12 +90,92 @@ impl EscrowContract {
         escrow::get_escrow(&env, escrow_id)
     }
 
-    /// Get voucher balance for an address.
+    // -----------------------------------------------------------------------
+    // Voucher Token System
+    // -----------------------------------------------------------------------
+
+    /// Get RVCH voucher balance for an address.
     pub fn get_voucher_balance(env: Env, address: Address) -> i128 {
         voucher::get_voucher_balance(&env, &address)
     }
 
-    /// Admin: approve a vendor.
+    // -----------------------------------------------------------------------
+    // ABI / Schema Registry
+    // -----------------------------------------------------------------------
+
+    /// Register a new ABI/schema for a contract ID.
+    pub fn register_abi(
+        env: Env,
+        contract_id: BytesN<32>,
+        schema: Bytes,
+    ) -> Result<u32, Error> {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(Error::Unauthorized)?;
+        admin.require_auth();
+        voucher::register_abi(&env, contract_id, schema)
+    }
+
+    /// Update an existing ABI/schema (increments version).
+    pub fn update_abi(
+        env: Env,
+        contract_id: BytesN<32>,
+        schema: Bytes,
+    ) -> Result<u32, Error> {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(Error::Unauthorized)?;
+        admin.require_auth();
+        voucher::update_abi(&env, contract_id, schema)
+    }
+
+    /// Get the stored ABI/schema for a contract.
+    pub fn get_abi(env: Env, contract_id: BytesN<32>) -> Result<ContractAbi, Error> {
+        voucher::get_abi(&env, contract_id)
+    }
+
+    /// Validate that a schema matches the stored ABI.
+    pub fn validate_abi(env: Env, contract_id: BytesN<32>, schema: Bytes) -> Result<bool, Error> {
+        voucher::validate_abi(&env, contract_id, &schema)
+    }
+
+    // -----------------------------------------------------------------------
+    // Admin
+    // -----------------------------------------------------------------------
+
+    /// Approve a vendor address for voucher redemption.
+    pub fn approve_vendor_address(env: Env, vendor: Address) -> Result<(), Error> {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(Error::Unauthorized)?;
+        admin.require_auth();
+        env.storage()
+            .persistent()
+            .set(&DataKey::VendorAddress(vendor), &true);
+        Ok(())
+    }
+
+    /// Remove a vendor address approval.
+    pub fn remove_vendor_address(env: Env, vendor: Address) -> Result<(), Error> {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(Error::Unauthorized)?;
+        admin.require_auth();
+        env.storage()
+            .persistent()
+            .set(&DataKey::VendorAddress(vendor), &false);
+        Ok(())
+    }
+
+    /// Approve a vendor by ID (BytesN<32>).
     pub fn approve_vendor(env: Env, vendor_id: BytesN<32>) -> Result<(), Error> {
         let admin: Address = env
             .storage()

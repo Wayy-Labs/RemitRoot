@@ -4,7 +4,9 @@ use crate::errors::Error;
 use crate::events;
 use crate::storage::{
     DataKey, EscrowRecord, EscrowState, APPROVAL_TIMEOUT_LEDGERS, DEFAULT_REPAYMENT_FEE_BPS,
+    PROTOCOL_FEE_BPS,
 };
+use crate::voucher;
 
 /// Derive a deterministic escrow ID from sender + vendor + season + ledger.
 fn make_escrow_id(env: &Env, sender: &Address, vendor_id: &BytesN<32>, crop_season: &Symbol) -> BytesN<32> {
@@ -79,6 +81,9 @@ pub fn approve_farmer(
     record.farmer = Some(farmer.clone());
     record.state = EscrowState::VoucherMinted;
 
+    // Mint voucher tokens to farmer
+    voucher::mint_voucher(env, &farmer, record.amount);
+
     env.storage().persistent().set(&DataKey::Escrow(escrow_id.clone()), &record);
     events::farmer_approved(env, &escrow_id, &farmer);
     events::voucher_minted(env, &escrow_id, &farmer, record.amount);
@@ -95,17 +100,6 @@ pub fn redeem_voucher(
 ) -> Result<(), Error> {
     vendor.require_auth();
 
-    // Verify vendor is approved
-    let vendor_key = DataKey::ApprovedVendor(
-        env.crypto().sha256(&soroban_sdk::Bytes::from_slice(env, &[0u8; 32])).into()
-    );
-    // Use vendor address bytes as key
-    let vendor_id_bytes: BytesN<32> = {
-        let mut b = soroban_sdk::Bytes::new(env);
-        b.extend_from_array(&[0u8; 32]);
-        env.crypto().sha256(&b).into()
-    };
-
     let mut record: EscrowRecord = env
         .storage()
         .persistent()
@@ -116,8 +110,13 @@ pub fn redeem_voucher(
         return Err(Error::InvalidState);
     }
 
+    let farmer = record.farmer.clone().ok_or(Error::InvalidState)?;
+
+    // Burn voucher from farmer (enforces vendor-only transfer restriction)
+    voucher::burn_voucher(env, &escrow_id, &farmer, &vendor, record.amount)?;
+
     // Protocol fee deduction
-    let protocol_fee = record.amount * (crate::storage::PROTOCOL_FEE_BPS as i128) / 10_000;
+    let protocol_fee = record.amount * (PROTOCOL_FEE_BPS as i128) / 10_000;
     let vendor_amount = record.amount - protocol_fee;
 
     let token_client = token::Client::new(env, usdc_token);

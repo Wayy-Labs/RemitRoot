@@ -21,6 +21,13 @@ pub fn voucher_minted(env: &Env, escrow_id: &BytesN<32>, farmer: &Address, amoun
     );
 }
 
+pub fn voucher_burned(env: &Env, escrow_id: &BytesN<32>, vendor: &Address, amount: i128) {
+    env.events().publish(
+        (symbol_short!("burned"), escrow_id.clone()),
+        (vendor.clone(), amount),
+    );
+}
+
 pub fn voucher_redeemed(env: &Env, escrow_id: &BytesN<32>, vendor: &Address, amount: i128) {
     env.events().publish(
         (symbol_short!("redeemed"), escrow_id.clone()),
@@ -60,5 +67,19 @@ pub fn escrow_defaulted(env: &Env, escrow_id: &BytesN<32>) {
     env.events().publish(
         (symbol_short!("default"), escrow_id.clone()),
         (),
+    );
+}
+
+pub fn abi_registered(env: &Env, contract_id: &BytesN<32>, version: u32) {
+    env.events().publish(
+        (Symbol::new(env, "abi_reg"), contract_id.clone()),
+        version,
+    );
+}
+
+pub fn abi_updated(env: &Env, contract_id: &BytesN<32>, old_version: u32, new_version: u32) {
+    env.events().publish(
+        (Symbol::new(env, "abi_upd"), contract_id.clone()),
+        (old_version, new_version),
     );
 }

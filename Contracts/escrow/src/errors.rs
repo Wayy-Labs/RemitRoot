@@ -15,4 +15,8 @@ pub enum Error {
     VendorNotApproved = 9,
     EscrowNotFound = 10,
     InvalidState = 11,
+    InsufficientBalance = 12,
+    TransferRestricted = 13,
+    AbiNotFound = 14,
+    AbiVersionMismatch = 15,
 }
