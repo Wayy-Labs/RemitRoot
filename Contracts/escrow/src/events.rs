@@ -108,3 +108,11 @@ pub fn abi_updated(env: &Env, contract_id: &BytesN<32>, old_version: u32, new_ve
         (old_version, new_version),
     );
 }
+
+/// Emitted when batch repay operation completes
+pub fn batch_repay_completed(env: &Env, successful: u32, failed: u32, total_repaid: i128) {
+    env.events().publish(
+        (Symbol::new(env, "batch_repay"), "completed"),
+        (successful, failed, total_repaid),
+    );
+}
