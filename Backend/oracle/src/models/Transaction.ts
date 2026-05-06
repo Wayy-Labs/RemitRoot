@@ -8,7 +8,6 @@ export interface Transaction {
   updatedAt: Date;
 }
 
-//
 
 export class TransactionModel {
   static tableName = "transactions";

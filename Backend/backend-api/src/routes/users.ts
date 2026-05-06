@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 
 const router = Router();
 
-// Mock data for users
+// Mock data for users file
 const users: any[] = [];
 
 /**
