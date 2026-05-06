@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { errorHandler } from "./middleware/errorHandler";
 import { logger } from "./middleware/logger";
 import userRoutes from "./routes/users";
+import vendorRoutes from "./routes/vendors";
 
 // Load environment variables
 dotenv.config();
@@ -20,6 +21,7 @@ app.use(logger);
 
 // Routes
 app.use("/api/users", userRoutes);
+app.use("/api/vendors", vendorRoutes);
 
 // Health check endpoint
 app.get("/health", (_req, res) => {
@@ -37,10 +39,12 @@ app.use((req, res) => {
 // Error handling middleware
 app.use(errorHandler);
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server is running on http://${HOST}:${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
-});
+// Start server only when not running in test mode
+if (process.env.NODE_ENV !== "test") {
+  app.listen(PORT, () => {
+    console.log(`Server is running on http://${HOST}:${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
+  });
+}
 
 export default app;
