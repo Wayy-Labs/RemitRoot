@@ -5,6 +5,8 @@ import { errorHandler } from "./middleware/errorHandler";
 import { logger } from "./middleware/logger";
 import userRoutes from "./routes/users";
 import vendorRoutes from "./routes/vendors";
+import momoWebhookRoutes from './routes/momoWebhook.routes';
+
 
 // Load environment variables
 dotenv.config();
@@ -46,5 +48,15 @@ if (process.env.NODE_ENV !== "test") {
     console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
   });
 }
+
+
+app.use('/webhooks/momo', express.raw({ type: 'application/json' }), (req, _res, next) => {
+  if (req.body && Buffer.isBuffer(req.body)) {
+    req.body = JSON.parse(req.body.toString());
+  }
+  next();
+});
+
+app.use('/webhooks/momo', momoWebhookRoutes);
 
 export default app;
