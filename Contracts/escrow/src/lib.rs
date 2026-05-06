@@ -9,6 +9,12 @@ mod repayment;
 mod storage;
 mod voucher;
 
+// Gas optimization modules
+mod gas_profiler;
+mod storage_optimized;
+mod batch_ops;
+mod gas_estimation;
+
 use errors::Error;
 use storage::{ContractAbi, DataKey, EscrowRecord, RepaymentEntry};
 
@@ -210,5 +216,106 @@ impl EscrowContract {
         admin.require_auth();
         env.storage().instance().set(&DataKey::Oracle, &oracle);
         Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // Gas Optimization & Batch Operations
+    // -----------------------------------------------------------------------
+
+    /// Execute batch repayments for multiple escrows in a single transaction.
+    /// Significantly reduces gas costs compared to individual repay calls.
+    ///
+    /// # Arguments
+    /// * `usdc_token` - USDC token contract address
+    /// * `items` - Vector of batch repayment items
+    /// * `max_batch_size` - Maximum allowed batch size (default 50)
+    ///
+    /// # Returns
+    /// BatchRepayResult with successful/failed counts and gas savings estimate
+    pub fn batch_repay(
+        env: Env,
+        usdc_token: Address,
+        items: Vec<batch_ops::BatchRepayItem>,
+        max_batch_size: u32,
+    ) -> Result<batch_ops::BatchRepayResult, Error> {
+        batch_ops::batch_repay(&env, &usdc_token, items, max_batch_size)
+    }
+
+    /// Get gas cost estimate for a fund operation
+    pub fn estimate_fund_cost(_env: Env) -> gas_estimation::FundEstimate {
+        gas_estimation::FundEstimate::new()
+    }
+
+    /// Get gas cost estimate for an approve operation
+    pub fn estimate_approve_cost(_env: Env) -> gas_estimation::ApproveEstimate {
+        gas_estimation::ApproveEstimate::new()
+    }
+
+    /// Get gas cost estimate for a redeem operation with specified number of transfers
+    pub fn estimate_redeem_cost(_env: Env, transfers: u32) -> gas_estimation::RedeemEstimate {
+        gas_estimation::RedeemEstimate::new(transfers)
+    }
+
+    /// Get gas cost estimate for a repay operation
+    pub fn estimate_repay_cost(_env: Env, transfers: u32, includes_history: bool) -> gas_estimation::RepayEstimate {
+        gas_estimation::RepayEstimate::new(transfers, includes_history)
+    }
+
+    /// Get gas cost estimate for a batch repay operation
+    pub fn estimate_batch_repay_cost(_env: Env, batch_size: u32) -> gas_estimation::BatchRepayEstimate {
+        gas_estimation::BatchRepayEstimate::new(batch_size)
+    }
+
+    /// Get recent repayment entries (lazy loaded)
+    /// Reduces gas by only fetching recent entries instead of full history
+    pub fn get_recent_repayments(
+        env: Env,
+        escrow_id: BytesN<32>,
+        limit: u32,
+    ) -> Result<Vec<RepaymentEntry>, Error> {
+        storage_optimized::get_recent_repayments(&env, &escrow_id, limit as usize)
+    }
+
+    /// Get repayment summary (total repaid and entry count) without loading full history
+    pub fn get_repayment_summary(
+        env: Env,
+        escrow_id: BytesN<32>,
+    ) -> Result<(i128, u32), Error> {
+        storage_optimized::get_repayment_summary(&env, &escrow_id)
+    }
+
+    /// Prune old repayment history to maintain storage efficiency
+    /// Admin-only operation
+    pub fn prune_repayment_history(
+        env: Env,
+        escrow_id: BytesN<32>,
+        max_entries: u32,
+    ) -> Result<(), Error> {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(Error::Unauthorized)?;
+        admin.require_auth();
+        storage_optimized::prune_repayment_history(&env, &escrow_id, max_entries as usize)
+    }
+
+    /// Batch query multiple escrow records
+    /// More efficient than multiple get_escrow calls
+    pub fn batch_get_escrows(
+        env: Env,
+        escrow_ids: Vec<BytesN<32>>,
+    ) -> Vec<Option<EscrowRecord>> {
+        batch_ops::batch_get_escrows(&env, escrow_ids)
+    }
+
+    /// Get gas profiler constants for off-chain optimization
+    pub fn get_gas_costs(_env: Env) -> (u32, u32, u32, u32) {
+        (
+            gas_profiler::gas_costs::STORAGE_READ_COST,
+            gas_profiler::gas_costs::STORAGE_WRITE_COST,
+            gas_profiler::gas_costs::TOKEN_TRANSFER_COST,
+            gas_profiler::gas_costs::REPAY_BASE,
+        )
     }
 }

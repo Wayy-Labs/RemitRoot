@@ -21,4 +21,8 @@ pub enum Error {
     RepaymentTimeout = 15,
     AbiNotFound = 16,
     AbiVersionMismatch = 17,
+    // Gas optimization errors
+    BatchSizeTooLarge = 18,
+    HistoryTooLarge = 19,
+    GasLimitExceeded = 20,
 }
