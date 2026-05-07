@@ -67,9 +67,6 @@ pub fn approve_farmer(
     escrow_id: BytesN<32>,
     farmer: Address,
 ) -> Result<(), Error> {
-    let admin: Address = env.storage().instance().get(&DataKey::Admin).ok_or(Error::Unauthorized)?;
-    admin.require_auth();
-
     let mut record: EscrowRecord = env
         .storage()
         .persistent()
@@ -140,9 +137,6 @@ pub fn redeem_voucher(
 
 /// Oracle triggers the repayment window after harvest.
 pub fn trigger_repay(env: &Env, escrow_id: BytesN<32>) -> Result<(), Error> {
-    let oracle: Address = env.storage().instance().get(&DataKey::Oracle).ok_or(Error::Unauthorized)?;
-    oracle.require_auth();
-
     let mut record: EscrowRecord = env
         .storage()
         .persistent()

@@ -25,4 +25,16 @@ pub enum Error {
     BatchSizeTooLarge = 18,
     HistoryTooLarge = 19,
     GasLimitExceeded = 20,
+    // RBAC errors
+    InsufficientPermissions = 21,
+    RoleNotFound = 22,
+    RoleAlreadyAssigned = 23,
+    ContractPaused = 24,
+    InvalidRoleTransition = 25,
+    MultiSigRequired = 26,
+    ProposalNotFound = 27,
+    ProposalAlreadyExecuted = 28,
+    ProposalExpired = 29,
+    InsufficientApprovals = 30,
+    AdminLimitExceeded = 31,
 }

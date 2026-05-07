@@ -12,6 +12,40 @@ pub enum EscrowState {
     Defaulted,
 }
 
+/// Role-based access control roles
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Role {
+    Admin,
+    Oracle,
+    Vendor,
+    Sender,
+    Farmer,
+}
+
+/// Permission levels for multi-signature operations
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum PermissionLevel {
+    Low,      // Single admin approval
+    Medium,   // 2 out of 3 admins
+    High,     // All admins (3 out of 3)
+    Critical, // All admins + oracle
+}
+
+/// Multi-signature proposal for critical operations
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct MultiSigProposal {
+    pub operation: Symbol,
+    pub params: Bytes,
+    pub proposer: Address,
+    pub approvals: Vec<Address>,
+    pub required_level: PermissionLevel,
+    pub created_ledger: u32,
+    pub executed: bool,
+}
+
 /// Individual repayment event stored on-chain.
 #[contracttype]
 #[derive(Clone, Debug)]
@@ -51,14 +85,25 @@ pub enum DataKey {
     Escrow(BytesN<32>),
     Admin,
     Oracle,
+    // Role mappings: address -> role
+    UserRole(Address),
+    // Admin list for multi-signature
+    AdminList,
+    // Approved vendors: vendor_id -> bool
     ApprovedVendor(BytesN<32>),
+    // Approved vendor addresses: address -> bool
+    VendorAddress(Address),
+    // Emergency pause state
+    Paused,
+    // Multi-signature proposals: proposal_id -> MultiSigProposal
+    MultiSigProposal(BytesN<32>),
+    // Proposal counter
+    ProposalCounter,
     /// Voucher balance per address
     VoucherBalance(Address),
-    /// Approved vendor address → bool (for transfer restriction)
-    VendorAddress(Address),
     /// Repayment history list per escrow
     RepaymentHistory(BytesN<32>),
-    /// ABI registry: contract_id → ContractAbi
+    /// ABI registry: contract_id -> ContractAbi
     ContractAbi(BytesN<32>),
     /// ABI version counter per contract
     AbiVersion(BytesN<32>),
