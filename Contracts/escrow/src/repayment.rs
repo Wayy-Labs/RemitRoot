@@ -37,13 +37,6 @@ pub fn protocol_fee_on(amount: i128, fee_bps: u32) -> i128 {
 /// Oracle triggers the repayment window after harvest.
 /// Sets a deadline ledger for the farmer to repay.
 pub fn trigger_repay(env: &Env, escrow_id: BytesN<32>) -> Result<(), Error> {
-    let oracle: Address = env
-        .storage()
-        .instance()
-        .get(&DataKey::Oracle)
-        .ok_or(Error::Unauthorized)?;
-    oracle.require_auth();
-
     let mut record: EscrowRecord = env
         .storage()
         .persistent()
@@ -144,13 +137,6 @@ pub fn repay(
 
 /// Oracle triggers a default when the repayment deadline has passed.
 pub fn default_escrow(env: &Env, escrow_id: BytesN<32>) -> Result<(), Error> {
-    let oracle: Address = env
-        .storage()
-        .instance()
-        .get(&DataKey::Oracle)
-        .ok_or(Error::Unauthorized)?;
-    oracle.require_auth();
-
     let mut record: EscrowRecord = env
         .storage()
         .persistent()

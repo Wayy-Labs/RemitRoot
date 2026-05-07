@@ -116,3 +116,95 @@ pub fn batch_repay_completed(env: &Env, successful: u32, failed: u32, total_repa
         (successful, failed, total_repaid),
     );
 }
+
+// -----------------------------------------------------------------------
+// Role-Based Access Control Events
+// -----------------------------------------------------------------------
+
+/// Emitted when a role is assigned to an address
+pub fn role_assigned(env: &Env, address: &Address, role: &storage::Role) {
+    env.events().publish(
+        (Symbol::new(env, "role_assign"), address.clone()),
+        role.clone(),
+    );
+}
+
+/// Emitted when a role is revoked from an address
+pub fn role_revoked(env: &Env, address: &Address, role: &storage::Role) {
+    env.events().publish(
+        (Symbol::new(env, "role_revoke"), address.clone()),
+        role.clone(),
+    );
+}
+
+/// Emitted when admin role is transferred
+pub fn admin_transferred(env: &Env, old_admin: &Address, new_admin: &Address) {
+    env.events().publish(
+        (Symbol::new(env, "admin_xfer"), old_admin.clone()),
+        new_admin.clone(),
+    );
+}
+
+/// Emitted when oracle is changed
+pub fn oracle_changed(env: &Env, old_oracle: &Address, new_oracle: &Address) {
+    env.events().publish(
+        (Symbol::new(env, "oracle_chg"), old_oracle.clone()),
+        new_oracle.clone(),
+    );
+}
+
+/// Emitted when vendor is approved
+pub fn vendor_approved(env: &Env, vendor_id: &BytesN<32>, approved_by: &Address) {
+    env.events().publish(
+        (Symbol::new(env, "vendor_appr"), vendor_id.clone()),
+        approved_by.clone(),
+    );
+}
+
+/// Emitted when vendor is removed
+pub fn vendor_removed(env: &Env, vendor_id: &BytesN<32>, removed_by: &Address) {
+    env.events().publish(
+        (Symbol::new(env, "vendor_rem"), vendor_id.clone()),
+        removed_by.clone(),
+    );
+}
+
+/// Emitted when contract is paused
+pub fn contract_paused(env: &Env, paused_by: &Address) {
+    env.events().publish(
+        (symbol_short!("paused"), "contract"),
+        paused_by.clone(),
+    );
+}
+
+/// Emitted when contract is resumed
+pub fn contract_resumed(env: &Env, resumed_by: &Address) {
+    env.events().publish(
+        (symbol_short!("resumed"), "contract"),
+        resumed_by.clone(),
+    );
+}
+
+/// Emitted when multi-signature proposal is created
+pub fn proposal_created(env: &Env, proposal_id: &BytesN<32>, operation: &Symbol, proposer: &Address) {
+    env.events().publish(
+        (Symbol::new(env, "prop_create"), proposal_id.clone()),
+        (operation.clone(), proposer.clone()),
+    );
+}
+
+/// Emitted when multi-signature proposal is approved
+pub fn proposal_approved(env: &Env, proposal_id: &BytesN<32>, approver: &Address) {
+    env.events().publish(
+        (Symbol::new(env, "prop_appr"), proposal_id.clone()),
+        approver.clone(),
+    );
+}
+
+/// Emitted when multi-signature proposal is executed
+pub fn proposal_executed(env: &Env, proposal_id: &BytesN<32>, executor: &Address) {
+    env.events().publish(
+        (Symbol::new(env, "prop_exec"), proposal_id.clone()),
+        executor.clone(),
+    );
+}
