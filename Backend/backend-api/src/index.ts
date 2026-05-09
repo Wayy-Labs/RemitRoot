@@ -5,6 +5,7 @@ import { errorHandler } from "./middleware/errorHandler";
 import { logger } from "./middleware/logger";
 import userRoutes from "./routes/users";
 import vendorRoutes from "./routes/vendors";
+import ussdRoutes from "./routes/ussd.routes";
 import momoWebhookRoutes from './routes/momoWebhook.routes';
 
 
@@ -24,6 +25,7 @@ app.use(logger);
 // Routes
 app.use("/api/users", userRoutes);
 app.use("/api/vendors", vendorRoutes);
+app.use("/api/ussd", ussdRoutes);
 
 // Health check endpoint
 app.get("/health", (_req, res) => {
