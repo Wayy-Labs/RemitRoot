@@ -98,12 +98,12 @@ export async function handleMomoPaymentNotification(
 }
 
 // ── Stub functions — replace with real DB/service calls ───────────────────
-async function getExpectedAmount(externalId: string): Promise<number | null> {
+async function getExpectedAmount(_externalId: string): Promise<number | null> {
   // TODO: query your orders/payments table
   return null;
 }
 
-async function getExpectedPayerPhone(externalId: string): Promise<string | undefined> {
+async function getExpectedPayerPhone(_externalId: string): Promise<string | undefined> {
   // TODO: query your users/orders table
   return undefined;
 }
